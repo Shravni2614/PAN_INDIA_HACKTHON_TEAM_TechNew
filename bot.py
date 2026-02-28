@@ -2,8 +2,7 @@ import os
 import logging
 import requests
 from dotenv import load_dotenv
-from rapidfuzz import process
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -11,8 +10,6 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from collections import defaultdict
-from datetime import datetime
 
 # -------------------------
 # Load Environment Variables
@@ -31,7 +28,6 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
-logger = logging.getLogger(__name__)
 
 # -------------------------
 # API URLs
@@ -40,252 +36,279 @@ WEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast"
 DATA_GOV_URL = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
 
 # -------------------------
-# Keyboard Menu
+# MENU
 # -------------------------
 MENU = ReplyKeyboardMarkup(
     [
-        ["📈 Market Prices"],
-        ["🌤 Weather"],
-        ["🌾 Harvest Advice"],
+        ["📈 Market Prices", "🌤 Weather"],
+        [KeyboardButton("📍 Share Location", request_location=True)],
+        ["🌾 Harvest Advice", "🌱 Fertilizer Advice"],
         ["🏛 Government Schemes"],
     ],
     resize_keyboard=True,
 )
 
-# -------------------------
-# Government Schemes
-# -------------------------
-GOV_SCHEMES = {
-    "PM-KISAN": "Income support of ₹6000 per year to eligible farmer families.",
-    "PMFBY": "Pradhan Mantri Fasal Bima Yojana - Crop insurance scheme.",
-    "Soil Health Card": "Provides soil nutrient status and fertilizer recommendations.",
-    "KCC": "Kisan Credit Card - Easy credit access for farmers.",
-    "e-NAM": "National Agriculture Market - Online trading platform for farmers.",
-}
+FARMER_PROFILES = {}
 
-# -------------------------
-# City Auto-Correction
-# -------------------------
-def suggest_city(city):
-    common_cities = [
-        "Mumbai", "Pune", "Nagpur", "Nashik",
-        "Delhi", "Bengaluru", "Hyderabad",
-        "Chennai", "Kolkata"
-    ]
-    match = process.extractOne(city, common_cities)
-    if match and match[1] > 70:
-        return match[0]
-    return city
+# ================= START =================
 
-# -------------------------
-# Fetch Weather
-# -------------------------
-def fetch_weather(city: str):
-    try:
-        params = {
-            "q": city,
-            "appid": OPENWEATHER_API,
-            "units": "metric",
-        }
-        response = requests.get(WEATHER_URL, params=params, timeout=10)
-
-        if response.status_code != 200:
-            logger.error(f"Weather API Error: {response.text}")
-            return None
-
-        return response.json()
-
-    except Exception as e:
-        logger.error(f"Weather Exception: {e}")
-        return None
-
-# -------------------------
-# Fetch Market Prices
-# -------------------------
-def fetch_market_prices():
-    try:
-        params = {
-            "api-key": DATA_GOV_API,
-            "format": "json",
-            "limit": 1000,
-            "filters[state]": STATE_NAME,
-        }
-        response = requests.get(DATA_GOV_URL, params=params, timeout=10)
-
-        if response.status_code != 200:
-            logger.error(response.text)
-            return []
-
-        return response.json().get("records", [])
-
-    except Exception as e:
-        logger.error(f"Market Exception: {e}")
-        return []
-
-# -------------------------
-# Start Command
-# -------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🌾 Welcome to Smart Krishi AI Bot!\nSelect an option:",
+        "🌾 Smart Farmer Assistant\n\nSelect an option:",
         reply_markup=MENU,
     )
 
-# -------------------------
-# Market Handler
-# -------------------------
-async def handle_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    crop = update.message.text.strip()
-    records = fetch_market_prices()
+# ================= WEATHER =================
 
-    if not records:
-        await update.message.reply_text("❌ Unable to fetch market data.")
+async def weather_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Enter city name:")
+    context.user_data["weather"] = True
+
+
+async def fetch_weather_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    city = update.message.text
+
+    params = {
+        "q": city,
+        "appid": OPENWEATHER_API,
+        "units": "metric",
+    }
+
+    r = requests.get(WEATHER_URL, params=params)
+
+    if r.status_code != 200:
+        await update.message.reply_text("❌ City not found.")
         return
 
-    commodities = list(set([r["commodity"] for r in records]))
-    match = process.extractOne(crop, commodities)
+    data = r.json()
 
-    if not match or match[1] < 70:
-        await update.message.reply_text("❌ Crop not found. Try another.")
+    avg_temp = sum(e["main"]["temp"] for e in data["list"][:8]) / 8
+    rain = sum(e.get("rain", {}).get("3h", 0) for e in data["list"][:8])
+    humidity = data["list"][0]["main"]["humidity"]
+    wind = data["list"][0]["wind"]["speed"]
+
+    await update.message.reply_text(
+        f"🌤 Weather in {city.title()}\n\n"
+        f"🌡 Avg Temp (24h): {round(avg_temp,1)}°C\n"
+        f"🌧 Rain (24h): {round(rain,1)} mm\n"
+        f"💧 Humidity: {humidity}%\n"
+        f"🌬 Wind Speed: {wind} m/s"
+    )
+
+    context.user_data["weather"] = False
+
+
+async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lat = update.message.location.latitude
+    lon = update.message.location.longitude
+
+    params = {
+        "lat": lat,
+        "lon": lon,
+        "appid": OPENWEATHER_API,
+        "units": "metric",
+    }
+
+    r = requests.get(WEATHER_URL, params=params)
+
+    if r.status_code != 200:
+        await update.message.reply_text("Weather fetch failed.")
         return
 
-    best_match = match[0]
-    filtered = [r for r in records if r["commodity"] == best_match]
+    data = r.json()
 
-    msg = f"📈 Market Prices for {best_match} ({STATE_NAME})\n\n"
+    avg_temp = sum(e["main"]["temp"] for e in data["list"][:8]) / 8
+    rain = sum(e.get("rain", {}).get("3h", 0) for e in data["list"][:8])
+    humidity = data["list"][0]["main"]["humidity"]
 
-    for item in filtered[:5]:
-        msg += (
-            f"Market: {item['market']}\n"
-            f"Min: ₹{item['min_price']} | "
-            f"Max: ₹{item['max_price']} | "
-            f"Modal: ₹{item['modal_price']}\n\n"
+    await update.message.reply_text(
+        f"📍 Location Weather\n\n"
+        f"🌡 Avg Temp: {round(avg_temp,1)}°C\n"
+        f"🌧 Rain: {round(rain,1)} mm\n"
+        f"💧 Humidity: {humidity}%"
+    )
+
+# ================= MARKET PRICES =================
+
+async def market_prices(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Enter commodity name (e.g. Wheat):")
+    context.user_data["market"] = True
+
+
+async def fetch_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    commodity = update.message.text
+
+    params = {
+        "api-key": DATA_GOV_API,
+        "format": "json",
+        "filters[commodity]": commodity,
+        "filters[state]": STATE_NAME,
+        "limit": 5,
+    }
+
+    r = requests.get(DATA_GOV_URL, params=params)
+
+    if r.status_code != 200:
+        await update.message.reply_text("❌ Market API error.")
+        return
+
+    data = r.json()
+
+    if "records" not in data or len(data["records"]) == 0:
+        await update.message.reply_text("No market data found.")
+        return
+
+    reply = f"📈 {commodity.title()} Prices ({STATE_NAME})\n\n"
+
+    for rec in data["records"]:
+        reply += (
+            f"🏪 Mandi: {rec.get('market','N/A')} APMC\n"
+            f"📉 Min: ₹{rec.get('min_price','N/A')}\n"
+            f"📈 Max: ₹{rec.get('max_price','N/A')}\n"
+            f"💰 Modal: ₹{rec.get('modal_price','N/A')}\n\n"
         )
 
-    await update.message.reply_text(msg)
+    await update.message.reply_text(reply)
+    context.user_data["market"] = False
 
-# -------------------------
-# Weather Handler
-# -------------------------
-async def handle_weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    city = suggest_city(update.message.text.strip())
-    data = fetch_weather(city)
+# ================= HARVEST ADVICE =================
 
-    if not data:
-        await update.message.reply_text("❌ Weather data unavailable.")
-        return
+async def harvest_advice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🌾 Harvest Tips:\n\n"
+        "• Harvest during dry weather\n"
+        "• Avoid harvesting before rainfall\n"
+        "• Ensure proper drying before storage\n"
+        "• Maintain moisture below recommended level"
+    )
 
-    daily_data = defaultdict(list)
+# ================= FERTILIZER =================
 
-    for entry in data["list"]:
-        date = entry["dt_txt"].split(" ")[0]
-        daily_data[date].append(entry)
+CROP_NPK = {
+    "wheat": (120, 60, 40),
+    "rice": (100, 50, 50),
+    "maize": (150, 75, 40),
+    "cotton": (200, 100, 100),
+    "soybean": (30, 60, 40),
+    "onion": (100, 50, 50),
+    "tomato": (120, 60, 60),
+    "potato": (180, 80, 100),
+    "sugarcane": (250, 115, 115),
+}
 
-    msg = f"🌤 5-Day Forecast for {city}\n\n"
+async def fertilizer_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    FARMER_PROFILES[update.effective_user.id] = {}
+    await update.message.reply_text("Enter crop name:")
+    context.user_data["fert"] = 1
 
-    for date, entries in list(daily_data.items())[:5]:
-        avg_temp = sum(e["main"]["temp"] for e in entries) / len(entries)
-        total_rain = sum(e.get("rain", {}).get("3h", 0) for e in entries)
 
-        readable_date = datetime.strptime(date, "%Y-%m-%d").strftime("%d %b %Y")
+async def fertilizer_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    step = context.user_data.get("fert")
 
-        msg += (
-            f"{readable_date}\n"
-            f"Avg Temp: {round(avg_temp,1)}°C\n"
-            f"Total Rain: {round(total_rain,1)} mm\n\n"
+    if step == 1:
+        FARMER_PROFILES[user_id]["crop"] = update.message.text.lower()
+        await update.message.reply_text("Enter soil type (loamy/clay/sandy):")
+        context.user_data["fert"] = 2
+
+    elif step == 2:
+        FARMER_PROFILES[user_id]["soil"] = update.message.text.lower()
+        await update.message.reply_text("Enter soil pH:")
+        context.user_data["fert"] = 3
+
+    elif step == 3:
+        ph = float(update.message.text)
+        profile = FARMER_PROFILES[user_id]
+        crop = profile["crop"]
+        soil = profile["soil"]
+
+        if crop not in CROP_NPK:
+            await update.message.reply_text("Crop data not available.")
+            context.user_data["fert"] = 0
+            return
+
+        N, P, K = CROP_NPK[crop]
+
+        if soil == "sandy":
+            N += 10
+            K += 10
+        elif soil == "clay":
+            P += 10
+
+        correction = ""
+        if ph < 6:
+            correction = "⚠ Apply Lime (soil acidic)"
+        elif ph > 7.5:
+            correction = "⚠ Apply Gypsum (soil alkaline)"
+
+        await update.message.reply_text(
+            f"🌱 Fertilizer Plan for {crop.title()}\n\n"
+            f"🧪 Soil Type: {soil.title()}\n"
+            f"📊 Soil pH: {ph}\n\n"
+            f"Recommended NPK (kg/ha):\n"
+            f"🟢 Nitrogen (N): {N}\n"
+            f"🔵 Phosphorus (P): {P}\n"
+            f"🟣 Potassium (K): {K}\n\n"
+            f"{correction}"
         )
 
-    await update.message.reply_text(msg)
+        context.user_data["fert"] = 0
 
-# -------------------------
-# Harvest Advisory
-# -------------------------
-async def handle_harvest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    city = suggest_city(update.message.text.strip())
-    data = fetch_weather(city)
+# ================= SCHEMES =================
 
-    if not data:
-        await update.message.reply_text("❌ Weather data unavailable.")
-        return
+async def schemes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🏛 Government Schemes:\n\n"
+        "• PM-KISAN\n"
+        "• Soil Health Card Scheme\n"
+        "• PM Fasal Bima Yojana\n"
+        "• eNAM Market"
+    )
 
-    next_48h = data["list"][:16]
+# ================= ROUTER =================
 
-    total_rain = sum(e.get("rain", {}).get("3h", 0) for e in next_48h)
-    max_temp = max(e["main"]["temp_max"] for e in next_48h)
-    avg_humidity = sum(e["main"]["humidity"] for e in next_48h) / len(next_48h)
-    max_wind = max(e["wind"]["speed"] for e in next_48h)
-
-    if total_rain > 20:
-        advice = "⚠ Heavy rain expected. Postpone harvest."
-    elif total_rain > 5:
-        advice = "🌦 Light rain possible. Harvest with caution."
-    elif max_temp > 36:
-        advice = "🌡 High temperature. Harvest early morning or late evening."
-    elif avg_humidity > 85:
-        advice = "💧 High humidity. Risk of fungal growth. Dry crops properly."
-    elif max_wind > 10:
-        advice = "🌬 Strong winds expected. Secure harvested crops."
-    else:
-        advice = "✅ Favorable weather conditions for harvest."
-
-    await update.message.reply_text(f"🌾 Harvest Advisory for {city}\n\n{advice}")
-
-# -------------------------
-# Scheme Handler
-# -------------------------
-async def handle_schemes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "🏛 Government Schemes for Farmers\n\n"
-    for name, desc in GOV_SCHEMES.items():
-        msg += f"• {name}\n{desc}\n\n"
-    await update.message.reply_text(msg)
-
-# -------------------------
-# Message Router
-# -------------------------
-async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
-    if text == "📈 Market Prices":
-        await update.message.reply_text("Enter crop name (e.g., Onion):")
-        context.user_data["mode"] = "market"
+    if context.user_data.get("weather"):
+        await fetch_weather_city(update, context)
+        return
 
-    elif text == "🌤 Weather":
-        await update.message.reply_text("Enter city name:")
-        context.user_data["mode"] = "weather"
+    if context.user_data.get("market"):
+        await fetch_market(update, context)
+        return
+
+    if context.user_data.get("fert"):
+        await fertilizer_flow(update, context)
+        return
+
+    if text == "🌤 Weather":
+        await weather_city(update, context)
+
+    elif text == "📈 Market Prices":
+        await market_prices(update, context)
 
     elif text == "🌾 Harvest Advice":
-        await update.message.reply_text("Enter city name:")
-        context.user_data["mode"] = "harvest"
+        await harvest_advice(update, context)
+
+    elif text == "🌱 Fertilizer Advice":
+        await fertilizer_start(update, context)
 
     elif text == "🏛 Government Schemes":
-        await handle_schemes(update, context)
+        await schemes(update, context)
 
-    else:
-        mode = context.user_data.get("mode")
+# ================= MAIN =================
 
-        if mode == "market":
-            await handle_market(update, context)
-        elif mode == "weather":
-            await handle_weather(update, context)
-        elif mode == "harvest":
-            await handle_harvest(update, context)
-        else:
-            await update.message.reply_text("Use /start to begin.")
-
-# -------------------------
-# Main
-# -------------------------
 def main():
-    if not TELEGRAM_TOKEN:
-        raise ValueError("Missing TELEGRAM_TOKEN in .env")
-
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_router))
+    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router))
 
-    print("Bot started successfully.")
+    print("Bot running...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
