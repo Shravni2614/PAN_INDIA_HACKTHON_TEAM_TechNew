@@ -43,9 +43,25 @@ DATA_GOV_URL = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43
 # Keyboard Menu
 # -------------------------
 MENU = ReplyKeyboardMarkup(
-    [["📈 Market Prices"], ["🌤 Weather"], ["🌾 Harvest Advice"]],
+    [
+        ["📈 Market Prices"],
+        ["🌤 Weather"],
+        ["🌾 Harvest Advice"],
+        ["🏛 Government Schemes"],
+    ],
     resize_keyboard=True,
 )
+
+# -------------------------
+# Government Schemes
+# -------------------------
+GOV_SCHEMES = {
+    "PM-KISAN": "Income support of ₹6000 per year to eligible farmer families.",
+    "PMFBY": "Pradhan Mantri Fasal Bima Yojana - Crop insurance scheme.",
+    "Soil Health Card": "Provides soil nutrient status and fertilizer recommendations.",
+    "KCC": "Kisan Credit Card - Easy credit access for farmers.",
+    "e-NAM": "National Agriculture Market - Online trading platform for farmers.",
+}
 
 # -------------------------
 # City Auto-Correction
@@ -56,9 +72,7 @@ def suggest_city(city):
         "Delhi", "Bengaluru", "Hyderabad",
         "Chennai", "Kolkata"
     ]
-
     match = process.extractOne(city, common_cities)
-
     if match and match[1] > 70:
         return match[0]
     return city
@@ -73,7 +87,6 @@ def fetch_weather(city: str):
             "appid": OPENWEATHER_API,
             "units": "metric",
         }
-
         response = requests.get(WEATHER_URL, params=params, timeout=10)
 
         if response.status_code != 200:
@@ -97,7 +110,6 @@ def fetch_market_prices():
             "limit": 1000,
             "filters[state]": STATE_NAME,
         }
-
         response = requests.get(DATA_GOV_URL, params=params, timeout=10)
 
         if response.status_code != 200:
@@ -153,7 +165,7 @@ async def handle_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 # -------------------------
-# Weather Handler (Daily Summary)
+# Weather Handler
 # -------------------------
 async def handle_weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
     city = suggest_city(update.message.text.strip())
@@ -186,7 +198,7 @@ async def handle_weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 # -------------------------
-# Harvest Advisory Handler
+# Harvest Advisory
 # -------------------------
 async def handle_harvest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     city = suggest_city(update.message.text.strip())
@@ -219,6 +231,15 @@ async def handle_harvest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🌾 Harvest Advisory for {city}\n\n{advice}")
 
 # -------------------------
+# Scheme Handler
+# -------------------------
+async def handle_schemes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = "🏛 Government Schemes for Farmers\n\n"
+    for name, desc in GOV_SCHEMES.items():
+        msg += f"• {name}\n{desc}\n\n"
+    await update.message.reply_text(msg)
+
+# -------------------------
 # Message Router
 # -------------------------
 async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -235,6 +256,9 @@ async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "🌾 Harvest Advice":
         await update.message.reply_text("Enter city name:")
         context.user_data["mode"] = "harvest"
+
+    elif text == "🏛 Government Schemes":
+        await handle_schemes(update, context)
 
     else:
         mode = context.user_data.get("mode")
