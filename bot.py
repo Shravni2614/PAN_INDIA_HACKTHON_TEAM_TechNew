@@ -1,34 +1,267 @@
 import os
+import logging
+import requests
 from dotenv import load_dotenv
+from rapidfuzz import process
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+from collections import defaultdict
+from datetime import datetime
 
-# Load environment variables
+# -------------------------
+# Load Environment Variables
+# -------------------------
 load_dotenv()
 
-# Get token from .env file
-TOKEN = os.getenv("BOT_TOKEN")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+OPENWEATHER_API = os.getenv("OPENWEATHER_API")
+DATA_GOV_API = os.getenv("DATA_GOV_API")
+STATE_NAME = os.getenv("STATE_NAME", "Maharashtra")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        ["🌦 Weather"],
-        ["📈 Market"],
-        ["🌾 Harvest Advice"]
+# -------------------------
+# Logging
+# -------------------------
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
+# -------------------------
+# API URLs
+# -------------------------
+WEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast"
+DATA_GOV_URL = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
+
+# -------------------------
+# Keyboard Menu
+# -------------------------
+MENU = ReplyKeyboardMarkup(
+    [["📈 Market Prices"], ["🌤 Weather"], ["🌾 Harvest Advice"]],
+    resize_keyboard=True,
+)
+
+# -------------------------
+# City Auto-Correction
+# -------------------------
+def suggest_city(city):
+    common_cities = [
+        "Mumbai", "Pune", "Nagpur", "Nashik",
+        "Delhi", "Bengaluru", "Hyderabad",
+        "Chennai", "Kolkata"
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+    match = process.extractOne(city, common_cities)
+
+    if match and match[1] > 70:
+        return match[0]
+    return city
+
+# -------------------------
+# Fetch Weather
+# -------------------------
+def fetch_weather(city: str):
+    try:
+        params = {
+            "q": city,
+            "appid": OPENWEATHER_API,
+            "units": "metric",
+        }
+
+        response = requests.get(WEATHER_URL, params=params, timeout=10)
+
+        if response.status_code != 200:
+            logger.error(f"Weather API Error: {response.text}")
+            return None
+
+        return response.json()
+
+    except Exception as e:
+        logger.error(f"Weather Exception: {e}")
+        return None
+
+# -------------------------
+# Fetch Market Prices
+# -------------------------
+def fetch_market_prices():
+    try:
+        params = {
+            "api-key": DATA_GOV_API,
+            "format": "json",
+            "limit": 1000,
+            "filters[state]": STATE_NAME,
+        }
+
+        response = requests.get(DATA_GOV_URL, params=params, timeout=10)
+
+        if response.status_code != 200:
+            logger.error(response.text)
+            return []
+
+        return response.json().get("records", [])
+
+    except Exception as e:
+        logger.error(f"Market Exception: {e}")
+        return []
+
+# -------------------------
+# Start Command
+# -------------------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🌾 Welcome to AgriAssist AI\n\nSelect an option:",
-        reply_markup=reply_markup
+        "🌾 Welcome to Smart Krishi AI Bot!\nSelect an option:",
+        reply_markup=MENU,
     )
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Feature coming soon.")
+# -------------------------
+# Market Handler
+# -------------------------
+async def handle_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    crop = update.message.text.strip()
+    records = fetch_market_prices()
 
-app = Application.builder().token(TOKEN).build()
+    if not records:
+        await update.message.reply_text("❌ Unable to fetch market data.")
+        return
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    commodities = list(set([r["commodity"] for r in records]))
+    match = process.extractOne(crop, commodities)
 
-print("Bot running...")
-app.run_polling()
+    if not match or match[1] < 70:
+        await update.message.reply_text("❌ Crop not found. Try another.")
+        return
+
+    best_match = match[0]
+    filtered = [r for r in records if r["commodity"] == best_match]
+
+    msg = f"📈 Market Prices for {best_match} ({STATE_NAME})\n\n"
+
+    for item in filtered[:5]:
+        msg += (
+            f"Market: {item['market']}\n"
+            f"Min: ₹{item['min_price']} | "
+            f"Max: ₹{item['max_price']} | "
+            f"Modal: ₹{item['modal_price']}\n\n"
+        )
+
+    await update.message.reply_text(msg)
+
+# -------------------------
+# Weather Handler (Daily Summary)
+# -------------------------
+async def handle_weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    city = suggest_city(update.message.text.strip())
+    data = fetch_weather(city)
+
+    if not data:
+        await update.message.reply_text("❌ Weather data unavailable.")
+        return
+
+    daily_data = defaultdict(list)
+
+    for entry in data["list"]:
+        date = entry["dt_txt"].split(" ")[0]
+        daily_data[date].append(entry)
+
+    msg = f"🌤 5-Day Forecast for {city}\n\n"
+
+    for date, entries in list(daily_data.items())[:5]:
+        avg_temp = sum(e["main"]["temp"] for e in entries) / len(entries)
+        total_rain = sum(e.get("rain", {}).get("3h", 0) for e in entries)
+
+        readable_date = datetime.strptime(date, "%Y-%m-%d").strftime("%d %b %Y")
+
+        msg += (
+            f"{readable_date}\n"
+            f"Avg Temp: {round(avg_temp,1)}°C\n"
+            f"Total Rain: {round(total_rain,1)} mm\n\n"
+        )
+
+    await update.message.reply_text(msg)
+
+# -------------------------
+# Harvest Advisory Handler
+# -------------------------
+async def handle_harvest(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    city = suggest_city(update.message.text.strip())
+    data = fetch_weather(city)
+
+    if not data:
+        await update.message.reply_text("❌ Weather data unavailable.")
+        return
+
+    next_48h = data["list"][:16]
+
+    total_rain = sum(e.get("rain", {}).get("3h", 0) for e in next_48h)
+    max_temp = max(e["main"]["temp_max"] for e in next_48h)
+    avg_humidity = sum(e["main"]["humidity"] for e in next_48h) / len(next_48h)
+    max_wind = max(e["wind"]["speed"] for e in next_48h)
+
+    if total_rain > 20:
+        advice = "⚠ Heavy rain expected. Postpone harvest."
+    elif total_rain > 5:
+        advice = "🌦 Light rain possible. Harvest with caution."
+    elif max_temp > 36:
+        advice = "🌡 High temperature. Harvest early morning or late evening."
+    elif avg_humidity > 85:
+        advice = "💧 High humidity. Risk of fungal growth. Dry crops properly."
+    elif max_wind > 10:
+        advice = "🌬 Strong winds expected. Secure harvested crops."
+    else:
+        advice = "✅ Favorable weather conditions for harvest."
+
+    await update.message.reply_text(f"🌾 Harvest Advisory for {city}\n\n{advice}")
+
+# -------------------------
+# Message Router
+# -------------------------
+async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+
+    if text == "📈 Market Prices":
+        await update.message.reply_text("Enter crop name (e.g., Onion):")
+        context.user_data["mode"] = "market"
+
+    elif text == "🌤 Weather":
+        await update.message.reply_text("Enter city name:")
+        context.user_data["mode"] = "weather"
+
+    elif text == "🌾 Harvest Advice":
+        await update.message.reply_text("Enter city name:")
+        context.user_data["mode"] = "harvest"
+
+    else:
+        mode = context.user_data.get("mode")
+
+        if mode == "market":
+            await handle_market(update, context)
+        elif mode == "weather":
+            await handle_weather(update, context)
+        elif mode == "harvest":
+            await handle_harvest(update, context)
+        else:
+            await update.message.reply_text("Use /start to begin.")
+
+# -------------------------
+# Main
+# -------------------------
+def main():
+    if not TELEGRAM_TOKEN:
+        raise ValueError("Missing TELEGRAM_TOKEN in .env")
+
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_router))
+
+    print("Bot started successfully.")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
