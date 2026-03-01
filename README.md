@@ -15,11 +15,14 @@ Here’s how the app looks:
 ![5](https://github.com/user-attachments/assets/9d5829ed-9bd1-4303-8083-10a0555f4aa4)
 ![6](https://github.com/user-attachments/assets/1155d5f2-6b70-4622-a889-983a19646ccc)
 
-## 🛠 Features
-- **Crop Price Info:** Get the latest market prices for different crops.  
-- **Weather Alerts:** Alerts for rain, storms, or extreme conditions.  
-- **Storage Recommendations:** Suggests the best way to store crops based on weather and market trends.  
-- **User-friendly Interface:** Simple and easy-to-use interface for farmers.
+## 🛠 Features & Advantages
+- **No App Download Needed:** Farmers don’t need to download any app or create accounts. Just open Telegram and type [@AgriAssistAI_bot](https://t.me/AgriAssistAI_bot).  
+- **All-in-One Solution:** Crop prices, weather alerts, and storage suggestions are available in a single bot. No need to check multiple apps.  
+- **User-Friendly Inline Buttons:** Makes navigation easy even for farmers who are not tech-savvy.  
+- **Real-Time Updates:** Market prices and weather alerts are updated in real-time.  
+- **Minimal Data Usage:** Works smoothly even on low-speed internet.   
+- **Secure & Private:** No personal information or sign-up required. Farmers can use it safely.  
+- **Portable:** Accessible from any smartphone with Telegram installed.  
 
 ## 💻 Installation / Run Locally
 
