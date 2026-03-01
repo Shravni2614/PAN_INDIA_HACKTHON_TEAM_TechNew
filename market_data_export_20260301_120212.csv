@@ -1,0 +1,34 @@
+Crop,State,Market,Min Price,Max Price,Modal Price,Date
+Onion,Maharashtra,Lasalgaon,1500,3500,2500,2024-03-01
+Onion,Maharashtra,Pune,1400,3300,2400,2024-03-01
+Onion,Maharashtra,Nashik,1550,3400,2600,2024-03-01
+Onion,Maharashtra,Nagpur,1450,3200,2300,2024-03-01
+Onion,Karnataka,Bangalore,1600,3600,2700,2024-03-01
+Onion,Karnataka,Mysore,1550,3400,2600,2024-03-01
+Onion,Punjab,Ludhiana,1400,3200,2300,2024-03-01
+Potato,Maharashtra,Pune,800,1500,1100,2024-03-01
+Potato,Maharashtra,Nashik,750,1400,1050,2024-03-01
+Potato,Uttar Pradesh,Agra,800,1500,1100,2024-03-01
+Potato,Uttar Pradesh,Lucknow,750,1400,1000,2024-03-01
+Potato,Uttar Pradesh,Kanpur,780,1450,1080,2024-03-01
+Potato,Punjab,Jalandhar,700,1300,950,2024-03-01
+Potato,Punjab,Amritsar,720,1350,980,2024-03-01
+Tomato,Maharashtra,Nashik,1000,2500,1700,2024-03-01
+Tomato,Maharashtra,Pune,1100,2400,1600,2024-03-01
+Tomato,Maharashtra,Nagpur,1050,2300,1650,2024-03-01
+Tomato,Karnataka,Kolar,900,2200,1500,2024-03-01
+Tomato,Karnataka,Bangalore,950,2300,1600,2024-03-01
+Tomato,Andhra Pradesh,Chittoor,850,2100,1400,2024-03-01
+Wheat,Punjab,Ludhiana,1800,2200,2000,2024-03-01
+Wheat,Punjab,Patiala,1750,2150,1950,2024-03-01
+Wheat,Haryana,Karnal,1780,2180,1980,2024-03-01
+Wheat,Haryana,Hisar,1760,2160,1960,2024-03-01
+Wheat,Uttar Pradesh,Meerut,1750,2150,1950,2024-03-01
+Rice,West Bengal,Bardhaman,2000,2800,2400,2024-03-01
+Rice,West Bengal,Hooghly,1950,2750,2350,2024-03-01
+Rice,Punjab,Amritsar,2100,2900,2500,2024-03-01
+Rice,Andhra Pradesh,West Godavari,2050,2850,2450,2024-03-01
+Sugarcane,Uttar Pradesh,Meerut,2800,3500,3150,2024-03-01
+Sugarcane,Uttar Pradesh,Muzaffarnagar,2750,3450,3100,2024-03-01
+Sugarcane,Maharashtra,Kolhapur,2900,3600,3250,2024-03-01
+Sugarcane,Maharashtra,Sangli,2850,3550,3200,2024-03-01
