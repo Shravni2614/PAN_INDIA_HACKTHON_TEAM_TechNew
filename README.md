@@ -79,7 +79,7 @@ PAN_INDIA_HACKTHON_TEAM_TECHNEW/
 └─ README.md               # This file
 ```
 
-💬 To try the Telegram bot, type **[@AgriAssistAI_bot]
+💬 To try the Telegram bot, type [@AgriAssistAI_bot](https://t.me/AgriAssistAI_bot)
 
 ## 🖼 Screenshots
 Here’s how the app looks:  
