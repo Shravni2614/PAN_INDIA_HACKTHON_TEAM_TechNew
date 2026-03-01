@@ -1,7 +1,7 @@
 # PAN India Hackathon Project - TechNew
 
 ## 🌾 Project Overview
-TechNew is a smart solution developed for the PAN India Hackathon.  
+AgriCHain is a smart solution developed for the PAN India Hackathon.  
 It helps farmers across India to get **real-time crop price updates**, **weather alerts**, and **storage suggestions** to make informed decisions.
 
 ---
