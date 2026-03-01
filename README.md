@@ -55,10 +55,15 @@ Here’s how the app looks:
 ```bash
 git clone https://github.com/Shravni2614/PAN_INDIA_HACKTHON_TEAM_TechNew.git
 cd PAN_INDIA_HACKTHON_TEAM_TechNew
+```
 2. **Install dependencies**
+```bash
 pip install -r requirements.txt
-3. **Run the project**
+```
+4. **Run the project**
+```bash
 python main.py
+```
 
 ---
 
