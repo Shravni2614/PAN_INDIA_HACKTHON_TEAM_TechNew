@@ -24,9 +24,57 @@ Here’s how the app looks:
 - **Secure & Private:** No personal information or sign-up required. Farmers can use it safely.  
 - **Portable:** Accessible from any smartphone with Telegram installed.  
 
+## ⚙️ Technologies Used
+- **Python** – For bot logic and data handling  
+- **Python-Telegram-Bot** – To create the Telegram bot and inline buttons  
+- **Requests / APIs** – To fetch real-time crop prices, weather info, and storage tips  
+- **JSON / CSV** – For structured data storage  
+- **GitHub** – Project hosting and version control  
+
+---
+
+## 🔄 How It Works
+1. **User Interaction:** Farmer interacts with the bot via Telegram commands or inline buttons.  
+2. **Bot Scripts:**  
+   - `bot.py` – Main bot script  
+   - `admin.py` – Admin features  
+   - `quick_test.py` & `test_*.py` – Testing scripts  
+3. **Data Handling:**  
+   - `download_market_data.py` – Fetches latest market data from APIs  
+   - `local_data_manager.py` – Manages local CSV data  
+   - `location_handler.py` – Handles farmer location for nearest markets  
+4. **Response:** Bot sends formatted updates on crop prices, weather, and storage suggestions.  
+
+> Example: Farmer clicks “Crop Prices → Onion” → Bot fetches latest data from CSV/API → Bot shows nearest market prices.
+
+---
+
 ## 💻 Installation / Run Locally
 
 1. **Clone the repository**
 ```bash
 git clone https://github.com/Shravni2614/PAN_INDIA_HACKTHON_TEAM_TechNew.git
 cd PAN_INDIA_HACKTHON_TEAM_TechNew
+2. **Install dependencies**
+pip install -r requirements.txt
+3. **Run the project**
+python main.py
+
+---
+
+## 📁Folder & File Structure
+PAN_INDIA_HACKTHON_TEAM_TECHNEW/
+│
+├─ bot.py                 # Main Telegram bot script
+├─ admin.py               # Admin scripts
+├─ download_market_data.py # Fetch market data from API
+├─ local_data_manager.py   # Manage local CSV data
+├─ location_handler.py     # Handle user location
+├─ market_data_export_20260301_120212.csv # Sample market data
+├─ quick_test.py           # Quick test script
+├─ test_*.py               # Testing scripts
+├─ requirements.txt        # Python dependencies
+├─ .env                    # Environment variables (API keys)
+├─ .gitignore
+├─ __pycache__/            # Python cache files
+└─ README.md               # This file
