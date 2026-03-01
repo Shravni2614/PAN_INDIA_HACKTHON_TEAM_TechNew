@@ -13,7 +13,7 @@ Here’s how the app looks:
 ![3](https://github.com/user-attachments/assets/09781cd3-1704-4df6-9df9-7598753e52ab)
 ![4](https://github.com/user-attachments/assets/22116612-216f-48e0-a38f-2304ab431314)
 ![5](https://github.com/user-attachments/assets/9d5829ed-9bd1-4303-8083-10a0555f4aa4)
-![6](https://github.com/user-attachments/assets/ef432b79-7185-45d3-8cb2-3c98d53a0445)
+![6](https://github.com/user-attachments/assets/1155d5f2-6b70-4622-a889-983a19646ccc)
 
 ## 🛠 Features
 - **Crop Price Info:** Get the latest market prices for different crops.  
