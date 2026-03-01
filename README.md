@@ -68,6 +68,7 @@ python main.py
 ---
 
 ## 📁Folder & File Structure
+```bash
 PAN_INDIA_HACKTHON_TEAM_TECHNEW/
 │
 ├─ bot.py                 # Main Telegram bot script
@@ -83,3 +84,4 @@ PAN_INDIA_HACKTHON_TEAM_TECHNEW/
 ├─ .gitignore
 ├─ __pycache__/            # Python cache files
 └─ README.md               # This file
+```
